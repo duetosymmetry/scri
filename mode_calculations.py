@@ -1059,3 +1059,66 @@ def poincare_fluxes(h, hdot=None):
     return (energy_flux(hdot),
             momentum_flux(hdot),
             angular_momentum_flux(h, hdot))
+
+def supermomentum_flux(h, L, M):
+    """Compute supermomentum flux from waveform
+    """
+
+    ##############################
+    # First, we need to define a helper function to go into
+    # `matrix_expectation_value`
+
+    def make_general_ylm_mat_gen_for_s(L, M, s):
+        """Produce a generator function for Y_{LM} as a matrix for use with `matrix_expect_val`.
+        """
+
+        if ((type(L) is not int) or
+            (type(M) is not int) or
+            (type(s) is not int)):
+            raise ValueError("(L,M,s) must all be type int in make_general_ylm_mat_gen_for_s")
+
+        if (L<0):
+            raise ValueError("L must be non-negative in make_general_ylm_mat_gen_for_s")
+
+        def YLM_M(ell_min, ell_max):
+            for ell in range(ell_min, ell_max+1):
+                ellp_min = max(ell_min, ell - L)
+                ellp_max = min(ell_max, ell + L)
+                for ellp in range(ellp_min, ellp_max+1):
+                    for m in range(-ell, ell+1):
+                        mp = m + M
+                        if ((mp < -ellp) or (mp > ellp)):
+                            continue
+                        yield (ellp, mp, ell, m,
+                               _swsh_Y_mat_el(s, ellp, mp, L, M, ell, m))
+
+        return YLM_M
+
+    ##############################
+    # Now we can use `matrix_expectation_value` to evaluate the
+    # supermomentum flux. First some plumbing.
+
+    from .waveform_modes import WaveformModes
+    from . import h as htype
+    from . import hdot as hdottype
+    if not isinstance(h, WaveformModes):
+        raise ValueError("Supermomentum flux can only be calculated from a `WaveformModes` object; "
+                         +"this object is of type `{0}`.".format(type(h)))
+    if h.dataType == hdottype:
+        hdot = h
+    elif h.dataType == htype:
+        hdot = h.copy()
+        hdot.dataType = hdottype
+        hdot.data = h.data_dot
+    else:
+        raise ValueError("Input argument is expected to have data of type `h` or `hdot`; "
+                         +"this waveform data has type `{0}`".format(h.data_type_string))
+
+    ##############################
+    # Finally do the calculation
+
+    YLM_M = make_general_ylm_mat_gen_for_s(L, M, hdot.spin_weight)
+
+    _, spdot  = matrix_expectation_value( hdot, YLM_M,  hdot )
+
+    return spdot
