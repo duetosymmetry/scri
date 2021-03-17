@@ -155,6 +155,36 @@ def bondi_CoM_charge(self):
     ).view(np.ndarray)
     return charge_vector_from_aspect(charge_aspect)[:, 1:]
 
+def bondi_dimensionless_spin_from_comom(self, t):
+    """Computed the spin part of the Bondi angular momentum at a time t. This is done by performing
+    a boost so that the AsymptoticBondiData is in the center of momentum frame at time t.
+    Parameters
+    ----------
+    t : float
+        Time at which the Bondi spin vector will be computed
+    Returns
+    -------
+    numpy.ndarray
+    """
+    if not isinstance(t, (int, float)):
+        raise TypeError("The Bondi spin vector can only be computed at one value of time.")
+
+    if t not in self.t:
+        # Interpolate the ABD to the time t
+        new_times = np.sort(np.append(self.t, t))
+        t_idx = np.where(new_times == t)[0][0]
+        # We avoid copying self to keep the memory footprint low
+        four_momentum = self.interpolate(new_times).bondi_four_momentum()[t_idx]
+    else:
+        t_idx = np.where(self.t == t)[0][0]
+        four_momentum = self.bondi_four_momentum()[t_idx]
+
+    velocity = -four_momentum[1:] / np.sqrt(four_momentum[0] ** 2 - np.sum(four_momentum[1:] ** 2))
+    boosted_abd = self.transform(time_translation=t, boost_velocity=velocity)
+    t_idx = np.abs(boosted_abd.t).argmin()
+    M = boosted_abd.bondi_rest_mass()[t_idx]
+    spin = boosted_abd.bondi_angular_momentum()[t_idx] / M**2
+    return spin
 
 def supermomentum(self, supermomentum_def, **kwargs):
     """Compute the supermomentum

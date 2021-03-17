@@ -77,19 +77,29 @@ def monotonize(y):
     return y[monotonic_indices(y)]
 
 
+def read_from_rpxm(file_name):
+    """Read data from an H5 file in RPXM format. This function reads the data with
+    scri.SpEC.file_io.rotating_paired_xor_multishuffle_bzip2.load but then returns
+    the data in the inertial frame as a WaveformModes object."""
+    try:
+        w = rotating_paired_xor_multishuffle_bzip2.load(file_name)
+    except OSError:
+        print(f"\n`read_from_rpxm` could not open the file '{file_name}'\n\n")
+        raise
+    w = w[0].to_inertial_frame()
+    return w
+
+
 def read_from_h5(file_name, **kwargs):
     """Read data from an H5 file in SXS format
-
     Note that SXS format is essentially compatible with NRAR format.  The existence of this function is not to be
     taken as the author's endorsement of either SXS or NRAR format.
-
     Parameters
     ----------
     file_name : str
         Path to H5 file containing the data, optionally including the path within the file itself to the directory
         containing the data.  For example, the standard SXS data with N=2 might be obtained with the file name
         `'rhOverM_Asymptotic_GeometricUnits.h5/Extrapolated_N2.dir'`.
-
     Keyword parameters
     ------------------
     frameType : int, optional
